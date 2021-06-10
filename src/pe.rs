@@ -12,8 +12,8 @@ pub struct PeHeader<'a> {
     pub dos_hdr: DosHeader<'a>,
     pub nt_hdr: NtHeader<'a>,
     pub sec_hdrs: Vec<SectionHeader<'a>>,
-    pub relocs: Option<Relocations<'a>>,
-    pub import_descs: Option<Vec<ImportDescriptor<'a>>>,
+    //pub relocs: Option<Relocations<'a>>,
+    //pub import_descs: Option<Vec<ImportDescriptor<'a>>>,
 }
 
 impl<'a> PeHeader<'a> {
@@ -34,6 +34,7 @@ impl<'a> PeHeader<'a> {
             leftover = l;
         }
 
+        /*
         let mut data_dir_entry: Vec<(usize, usize, DataDirType)> = Vec::new();
 
         if let Some(base_relocs) = &nt_hdr.opt_hdr.data_dirs.base_reloc {
@@ -56,7 +57,7 @@ impl<'a> PeHeader<'a> {
                 imports.size.val() as usize,
                 DataDirType::Import,
             ))
-            /*
+            
             let imports_buf = &mut leftover[import_descs_disk_start..];
 
             let mut import_descs = Vec::new();
@@ -70,7 +71,6 @@ impl<'a> PeHeader<'a> {
             }
 
             Some(import_descs)
-            */
         };
 
         data_dir_entry.sort_by(|a, b| a.0.cmp(&b.0));
@@ -90,13 +90,13 @@ impl<'a> PeHeader<'a> {
                 },
             }
         }
-
+            */
         Ok(Self {
             dos_hdr,
             nt_hdr,
             sec_hdrs,
-            relocs,
-            import_descs,
+            //relocs,
+            //import_descs,
         })
     }
 
