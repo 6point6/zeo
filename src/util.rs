@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 #[macro_export]
 
 macro_rules! fmt_err {
@@ -12,4 +14,21 @@ macro_rules! fmt_err {
             std::backtrace::Backtrace::force_capture()
         )
     }}
+}
+
+pub trait IterWriteBack<'a> {
+    type Iter;
+    type Output;
+
+    fn iter(buf: &'a [u8]) -> Self::Iter
+    where
+        Self::Iter: Iterator;
+
+    fn write_item(buf: &mut Cursor<&'a mut [u8]>, item: &Self::Output);
+
+    fn write_all(buf: &mut Cursor<&'a mut [u8]>, item_vec: &Vec<Self::Output>) {
+        for i in item_vec {
+            Self::write_item(buf, i)
+        }
+    }
 }

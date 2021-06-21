@@ -2,9 +2,9 @@
 #[macro_use]
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
+use crate::util::IterWriteBack;
 use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Cursor, Read};
-use zordon::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RelocationType {
@@ -100,18 +100,15 @@ impl<'a> Iterator for RelocationsIter<'a> {
 
 pub struct Relocations;
 
-impl Relocations {
-    pub fn iter<'a>(buf: &'a [u8]) -> RelocationsIter {
+impl<'a> IterWriteBack<'a> for Relocations {
+    type Iter = RelocationsIter<'a>;
+    type Output = Relocation;
+
+    fn iter(buf: &'a [u8]) -> Self::Iter {
         RelocationsIter::into_iter(RelocationsIter::new(buf))
     }
 
-    pub fn write<'a>(buf: &mut Cursor<&'a mut [u8]>, relocs: &Vec<Relocation>) {
-        for r in relocs {
-            Self::write_reloc(buf, r);
-        }
-    }
-
-    pub fn write_reloc<'a>(buf: &mut Cursor<&'a mut [u8]>, reloc: &Relocation) {
+    fn write_item(buf: &mut Cursor<&'a mut [u8]>, reloc: &Self::Output) {
         buf.write_u32::<LittleEndian>(reloc.virt_addr).unwrap();
         buf.write_u32::<LittleEndian>(reloc.size_of_block).unwrap();
         for e in &reloc.block {
@@ -181,7 +178,7 @@ fn relocations_write() {
         relocs.push(r);
     }
 
-    Relocations::write(&mut relocs_write_buf, &relocs);
+    Relocations::write_all(&mut relocs_write_buf, &relocs);
 
     assert_eq!(RELOC_TESTDATA, relocs_write_buf.into_inner());
 }
