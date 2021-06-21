@@ -50,7 +50,6 @@ impl RelocTypeOffset {
     }
 }
 
-
 #[derive(Debug)]
 pub struct Relocation {
     pub virt_addr: u32,
@@ -99,11 +98,32 @@ impl<'a> Iterator for RelocationsIter<'a> {
     }
 }
 
+pub struct Relocations;
+
+impl Relocations {
+    pub fn iter<'a>(buf: &'a [u8]) -> RelocationsIter {
+        RelocationsIter::into_iter(RelocationsIter::new(buf))
+    }
+
+    pub fn write<'a>(buf: &mut Cursor<&'a mut [u8]>, relocs: &Vec<Relocation>) {
+        for r in relocs {
+            Self::write_reloc(buf, r);
+        }
+    }
+
+    pub fn write_reloc<'a>(buf: &mut Cursor<&'a mut [u8]>, reloc: &Relocation) {
+        buf.write_u32::<LittleEndian>(reloc.virt_addr).unwrap();
+        buf.write_u32::<LittleEndian>(reloc.size_of_block).unwrap();
+        for e in &reloc.block {
+            buf.write_u16::<LittleEndian>(e.to_u16le()).unwrap()
+        }
+    }
+}
 
 #[allow(dead_code)]
 const RELOC_TESTDATA: [u8; 28] = [
-    0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0,
-    0x17, 0x30, 0x1F, 0x30, 0, 0, 0, 0,
+    0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30,
+    0x1F, 0x30, 0, 0, 0, 0,
 ];
 
 #[test]
@@ -146,7 +166,22 @@ fn relocations_iter() {
     assert_eq!(relocs[0].block[0].reloc_offset, 0x17);
     assert_eq!(relocs[0].block[1].reloc_offset, 0x1F);
 
-
     assert_eq!(relocs[1].block[0].reloc_offset, 0x17);
     assert_eq!(relocs[1].block[1].reloc_offset, 0x1F);
+}
+
+#[test]
+fn relocations_write() {
+    let relocs_iter = Relocations::iter(&RELOC_TESTDATA);
+    let write_buf = &mut [0 as u8; RELOC_TESTDATA.len()] as &mut [u8];
+    let mut relocs_write_buf = Cursor::new(write_buf);
+    let mut relocs: Vec<Relocation> = Vec::with_capacity(2);
+
+    for r in relocs_iter.into_iter() {
+        relocs.push(r);
+    }
+
+    Relocations::write(&mut relocs_write_buf, &relocs);
+
+    assert_eq!(RELOC_TESTDATA, relocs_write_buf.into_inner());
 }
