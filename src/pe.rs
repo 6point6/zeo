@@ -1,6 +1,6 @@
 use crate::fmt_err;
 use crate::{
-    dos_hdr::DosHeader, imports::ImportDescriptor, nt_hdr::*, relocs::Relocations,
+    dos_hdr::DosHeader, imports::ImportDescriptor, nt_hdr::*, relocs::Relocation,
     sec_hdr::SectionHeader,
 };
 use zordon::prelude::*;
@@ -34,69 +34,10 @@ impl<'a> PeHeader<'a> {
             leftover = l;
         }
 
-        /*
-        let mut data_dir_entry: Vec<(usize, usize, DataDirType)> = Vec::new();
-
-        if let Some(base_relocs) = &nt_hdr.opt_hdr.data_dirs.base_reloc {
-            let reloc_table_disk_offset =
-                Self::rva_to_file_offset(&sec_hdrs, base_relocs.virt_addr.val())? as usize;
-
-            data_dir_entry.push((
-                reloc_table_disk_offset,
-                base_relocs.size.val() as usize,
-                DataDirType::Reloc,
-            ))
-        };
-
-        if let Some(imports) = &nt_hdr.opt_hdr.data_dirs.import {
-            let import_descs_disk_start =
-                Self::rva_to_file_offset(&sec_hdrs, imports.virt_addr.val())? as usize;
-
-            data_dir_entry.push((
-                import_descs_disk_start,
-                imports.size.val() as usize,
-                DataDirType::Import,
-            ))
-            
-            let imports_buf = &mut leftover[import_descs_disk_start..];
-
-            let mut import_descs = Vec::new();
-
-            loop {
-                let (import_desc, imports_buf) = ImportDescriptor::mut_view(imports_buf); // Low chance but possible for this to error if last desc is right before EOF
-                match import_desc.original_first_thunk.val() {
-                    0 => break,
-                    _ => import_descs.push(import_desc),
-                }
-            }
-
-            Some(import_descs)
-        };
-
-        data_dir_entry.sort_by(|a, b| a.0.cmp(&b.0));
-
-        let mut relocs = None;
-        let mut import_descs = None;
-
-        for e in data_dir_entry {
-            match e.2 {
-                DataDirType::Reloc => {
-                    let (_, l) = leftover.split_at_mut(e.0 - (rwbuf.len() - leftover.len()));
-                    relocs = Some(Relocations::new(l)?);
-                    leftover = l;
-                },
-                DataDirType::Import => {
-
-                },
-            }
-        }
-            */
         Ok(Self {
             dos_hdr,
             nt_hdr,
             sec_hdrs,
-            //relocs,
-            //import_descs,
         })
     }
 

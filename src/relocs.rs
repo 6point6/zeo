@@ -2,6 +2,8 @@
 #[macro_use]
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
+use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Cursor, Read};
 use zordon::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,67 +31,122 @@ impl RelocationType {
     }
 }
 
-pub struct Relocations<'a> {
-    pub virt_addr: MulByteView<'a, u32, LitEnd>,
-    pub size_of_block: MulByteView<'a, u32, LitEnd>,
-    pub block: Vec<MulByteView<'a, u16, LitEnd>>,
+#[derive(Debug)]
+pub struct RelocTypeOffset {
+    pub reloc_type: RelocationType,
+    pub reloc_offset: u16,
 }
 
-impl<'a> Relocations<'a> {
-    pub fn new(rwbuf: &'a mut [u8]) -> Result<Self, String> {
-        let (virt_addr, leftover) = MulByteView::mut_view(rwbuf);
-        let (size_of_block, mut leftover): (MulByteView<u32, LitEnd>, _) = MulByteView::mut_view(leftover);
+impl RelocTypeOffset {
+    pub fn new(type_offset_pair: u16) -> Self {
+        Self {
+            reloc_type: RelocationType::new(((type_offset_pair & 0xF000) >> 12) as u8),
+            reloc_offset: (type_offset_pair & 0xFFF) as u16,
+        }
+    }
 
-        let entry_count = ((size_of_block.val() - 8) / 2) as usize;
-        let mut block: Vec<MulByteView<u16, LitEnd>> = Vec::with_capacity(entry_count);
+    pub fn to_u16le(&self) -> u16 {
+        (self.reloc_type as u16) << 12 | self.reloc_offset as u16
+    }
+}
 
-        for _ in 0..entry_count {
-            let (slice, l) = MulByteView::mut_view(leftover);
-            block.push(slice);
-            leftover = l;
+
+#[derive(Debug)]
+pub struct Relocation {
+    pub virt_addr: u32,
+    pub size_of_block: u32,
+    pub block: Vec<RelocTypeOffset>,
+}
+
+pub struct RelocationsIter<'a> {
+    buf: Cursor<&'a [u8]>,
+}
+
+impl<'a> RelocationsIter<'a> {
+    pub fn new(buf: &'a [u8]) -> Self {
+        Self {
+            buf: Cursor::new(buf),
+        }
+    }
+}
+
+impl<'a> Iterator for RelocationsIter<'a> {
+    type Item = Relocation;
+
+    // Maybe this shouldn't panic
+    fn next(&mut self) -> Option<Self::Item> {
+        let virt_addr = self.buf.read_u32::<LittleEndian>().unwrap();
+
+        if virt_addr == 0 {
+            return None;
         }
 
-        Ok(Self {
+        let size_of_block = self.buf.read_u32::<LittleEndian>().unwrap();
+        let type_offset_count = ((size_of_block - 8) / 2) as usize;
+
+        let mut block: Vec<RelocTypeOffset> = Vec::with_capacity(type_offset_count);
+
+        for _ in 1..=type_offset_count {
+            let type_offset_pair = self.buf.read_u16::<LittleEndian>().unwrap();
+            block.push(RelocTypeOffset::new(type_offset_pair));
+        }
+
+        Some(Relocation {
             virt_addr,
             size_of_block,
             block,
         })
     }
-
-    pub fn to_type(type_offset_pair: u16) -> RelocationType {
-        RelocationType::new(((type_offset_pair & 0xF000) >> 12) as u8)
-    }
-
-    pub fn to_offset(type_offset_pair: u16) -> u16 {
-        type_offset_pair & 0xFFF
-    }
 }
 
+
 #[allow(dead_code)]
-const RELOC_TESTDATA: [u8; 0x10] = [
-    0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0, 0, 0,
+const RELOC_TESTDATA: [u8; 28] = [
+    0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0,
+    0x17, 0x30, 0x1F, 0x30, 0, 0, 0, 0,
 ];
 
 #[test]
-fn relocations_new() {
-    let mut buf = RELOC_TESTDATA.to_vec();
+fn relocations_iter() {
+    let relocs_iter = RelocationsIter::new(&RELOC_TESTDATA);
+    let mut relocs: Vec<Relocation> = Vec::with_capacity(2);
 
-    let relocs = Relocations::new(&mut buf).unwrap();
+    for r in relocs_iter.into_iter() {
+        relocs.push(r);
+    }
 
-    assert_eq_hex!(relocs.virt_addr.val(), 0x1000);
-    assert_eq_hex!(relocs.size_of_block.val(), 0x0C);
-    assert_eq_hex!(relocs.block[0].val(), 0x3017);
-    assert_eq_hex!(relocs.block[1].val(), 0x301F);
+    assert_eq_hex!(relocs[0].virt_addr, 0x1000);
+    assert_eq_hex!(relocs[0].size_of_block, 0x0C);
+    assert_eq_hex!(relocs[0].block[0].to_u16le(), 0x3017);
+    assert_eq_hex!(relocs[0].block[1].to_u16le(), 0x301F);
+
+    assert_eq_hex!(relocs[1].virt_addr, 0x1000);
+    assert_eq_hex!(relocs[1].size_of_block, 0x0C);
+    assert_eq_hex!(relocs[1].block[0].to_u16le(), 0x3017);
+    assert_eq_hex!(relocs[1].block[1].to_u16le(), 0x301F);
 
     assert_eq!(
-        Relocations::to_type(relocs.block[0].val()),
+        relocs[0].block[0].reloc_type,
         RelocationType::ImageRelBasedHighLow
     );
     assert_eq!(
-        Relocations::to_type(relocs.block[1].val()),
+        relocs[0].block[1].reloc_type,
         RelocationType::ImageRelBasedHighLow
     );
 
-    assert_eq!(Relocations::to_offset(relocs.block[0].val()), 0x17);
-    assert_eq!(Relocations::to_offset(relocs.block[1].val()), 0x1F);
+    assert_eq!(
+        relocs[1].block[0].reloc_type,
+        RelocationType::ImageRelBasedHighLow
+    );
+    assert_eq!(
+        relocs[1].block[1].reloc_type,
+        RelocationType::ImageRelBasedHighLow
+    );
+
+    assert_eq!(relocs[0].block[0].reloc_offset, 0x17);
+    assert_eq!(relocs[0].block[1].reloc_offset, 0x1F);
+
+
+    assert_eq!(relocs[1].block[0].reloc_offset, 0x17);
+    assert_eq!(relocs[1].block[1].reloc_offset, 0x1F);
 }

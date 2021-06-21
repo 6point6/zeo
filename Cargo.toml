@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 zordon = "0.1.9"
 assert_hex = "0.2.2"
+byteorder = "1.4.2"
