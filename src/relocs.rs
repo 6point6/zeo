@@ -3,8 +3,8 @@
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
 use crate::util::IterWriteBack;
-use byteorder::{BigEndian, ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Cursor, Read};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::Cursor;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RelocationType {
