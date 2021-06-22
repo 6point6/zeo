@@ -24,11 +24,11 @@ pub trait IterWriteBack<'a> {
     where
         Self::Iter: Iterator;
 
-    fn write_item(buf: &mut Cursor<&'a mut [u8]>, item: &Self::Output);
+    fn write_single(buf: &mut Cursor<&'a mut [u8]>, item: &Self::Output);
 
     fn write_all(buf: &mut Cursor<&'a mut [u8]>, item_vec: &Vec<Self::Output>) {
         for i in item_vec {
-            Self::write_item(buf, i)
+            Self::write_single(buf, i)
         }
     }
 }

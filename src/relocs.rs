@@ -108,7 +108,7 @@ impl<'a> IterWriteBack<'a> for Relocations {
         RelocationsIter::into_iter(RelocationsIter::new(buf))
     }
 
-    fn write_item(buf: &mut Cursor<&'a mut [u8]>, reloc: &Self::Output) {
+    fn write_single(buf: &mut Cursor<&'a mut [u8]>, reloc: &Self::Output) {
         buf.write_u32::<LittleEndian>(reloc.virt_addr).unwrap();
         buf.write_u32::<LittleEndian>(reloc.size_of_block).unwrap();
         for e in &reloc.block {
@@ -122,6 +122,7 @@ const RELOC_TESTDATA: [u8; 28] = [
     0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30,
     0x1F, 0x30, 0, 0, 0, 0,
 ];
+
 
 #[test]
 fn relocations_iter() {
@@ -168,7 +169,7 @@ fn relocations_iter() {
 }
 
 #[test]
-fn relocations_write() {
+fn relocations_writeback() {
     let relocs_iter = Relocations::iter(&RELOC_TESTDATA);
     let write_buf = &mut [0 as u8; RELOC_TESTDATA.len()] as &mut [u8];
     let mut relocs_write_buf = Cursor::new(write_buf);
