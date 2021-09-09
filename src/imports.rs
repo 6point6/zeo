@@ -1,8 +1,8 @@
-use crate::util::IterWriteBack;
-use byteorder::{ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::Cursor;
+use crate::util::{IterWriteBack, ROCursor, RWCursor};
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
+use byteorder::{ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
+use std::io::Cursor;
 
 pub struct ImportDescriptor {
     pub original_first_thunk: u32,
@@ -13,13 +13,13 @@ pub struct ImportDescriptor {
 }
 
 pub struct ImportDescriptorIter<'a> {
-    buf: Cursor<&'a [u8]>,
+    cur: ROCursor<'a>,
 }
 
 impl<'a> ImportDescriptorIter<'a> {
     pub fn new(buf: &'a [u8]) -> Self {
         Self {
-            buf: Cursor::new(buf),
+            cur: ROCursor::new(buf),
         }
     }
 }
@@ -28,7 +28,7 @@ impl<'a> Iterator for ImportDescriptorIter<'a> {
     type Item = ImportDescriptor;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let original_first_thunk = self.buf.read_u32::<LittleEndian>().unwrap();
+        let original_first_thunk = self.cur.read_u32::<LittleEndian>();
 
         if original_first_thunk == 0 {
             return None;
@@ -36,10 +36,10 @@ impl<'a> Iterator for ImportDescriptorIter<'a> {
 
         Some(ImportDescriptor {
             original_first_thunk,
-            time_data_stamp: self.buf.read_u32::<LittleEndian>().unwrap(),
-            forwarder_chain: self.buf.read_u32::<LittleEndian>().unwrap(),
-            name: self.buf.read_u32::<LittleEndian>().unwrap(),
-            first_thunk: self.buf.read_u32::<LittleEndian>().unwrap(),
+            time_data_stamp: self.cur.read_u32::<LittleEndian>(),
+            forwarder_chain: self.cur.read_u32::<LittleEndian>(),
+            name: self.cur.read_u32::<LittleEndian>(),
+            first_thunk: self.cur.read_u32::<LittleEndian>(),
         })
     }
 }
@@ -54,16 +54,12 @@ impl<'a> IterWriteBack<'a> for ImportDescriptors {
         ImportDescriptorIter::into_iter(ImportDescriptorIter::new(buf))
     }
 
-    fn write_single(buf: &mut Cursor<&'a mut [u8]>, import_desc: &Self::Output) {
-        buf.write_u32::<LittleEndian>(import_desc.original_first_thunk)
-            .unwrap();
-        buf.write_u32::<LittleEndian>(import_desc.time_data_stamp)
-            .unwrap();
-        buf.write_u32::<LittleEndian>(import_desc.forwarder_chain)
-            .unwrap();
-        buf.write_u32::<LittleEndian>(import_desc.name).unwrap();
-        buf.write_u32::<LittleEndian>(import_desc.first_thunk)
-            .unwrap();
+    fn write_single(buf: &mut RWCursor, import_desc: &Self::Output) {
+        buf.write_u32::<LittleEndian>(import_desc.original_first_thunk);
+        buf.write_u32::<LittleEndian>(import_desc.time_data_stamp);
+        buf.write_u32::<LittleEndian>(import_desc.forwarder_chain);
+        buf.write_u32::<LittleEndian>(import_desc.name);
+        buf.write_u32::<LittleEndian>(import_desc.first_thunk);
     }
 }
 
@@ -71,7 +67,7 @@ impl<'a> IterWriteBack<'a> for ImportDescriptors {
 const IMPORT_DESC_TESTDATA: [u8; 44] = [
     0x40, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6E, 0x31, 0x00, 0x00,
     0x00, 0x30, 0x00, 0x00, 0x50, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x8A, 0x31, 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 
+    0x8A, 0x31, 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
 
 #[test]
@@ -100,7 +96,7 @@ fn import_descriptor_iter() {
 fn import_descriptor_writeback() {
     let import_descs_iter = ImportDescriptorIter::new(&IMPORT_DESC_TESTDATA);
     let write_buf = &mut [0 as u8; IMPORT_DESC_TESTDATA.len()] as &mut [u8];
-    let mut import_descs_write_buf = Cursor::new(write_buf);
+    let mut import_descs_write_buf = RWCursor::new(write_buf);
     let mut import_descriptors: Vec<ImportDescriptor> = Vec::with_capacity(2);
 
     for r in import_descs_iter.into_iter() {
@@ -109,5 +105,5 @@ fn import_descriptor_writeback() {
 
     ImportDescriptors::write_all(&mut import_descs_write_buf, &import_descriptors);
 
-    assert_eq!(IMPORT_DESC_TESTDATA, import_descs_write_buf.into_inner());
+    assert_eq!(IMPORT_DESC_TESTDATA, import_descs_write_buf.buf);
 }

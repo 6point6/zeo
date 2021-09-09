@@ -2,7 +2,7 @@
 #[macro_use]
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
-use crate::util::IterWriteBack;
+use crate::util::{IterWriteBack, ROCursor, RWCursor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::Cursor;
 
@@ -108,11 +108,11 @@ impl<'a> IterWriteBack<'a> for Relocations {
         RelocationsIter::into_iter(RelocationsIter::new(buf))
     }
 
-    fn write_single(buf: &mut Cursor<&'a mut [u8]>, reloc: &Self::Output) {
-        buf.write_u32::<LittleEndian>(reloc.virt_addr).unwrap();
-        buf.write_u32::<LittleEndian>(reloc.size_of_block).unwrap();
+    fn write_single(buf: &mut RWCursor, reloc: &Self::Output) {
+        buf.write_u32::<LittleEndian>(reloc.virt_addr);
+        buf.write_u32::<LittleEndian>(reloc.size_of_block);
         for e in &reloc.block {
-            buf.write_u16::<LittleEndian>(e.to_u16le()).unwrap()
+            buf.write_u16::<LittleEndian>(e.to_u16le())
         }
     }
 }
@@ -122,7 +122,6 @@ const RELOC_TESTDATA: [u8; 28] = [
     0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30,
     0x1F, 0x30, 0, 0, 0, 0,
 ];
-
 
 #[test]
 fn relocations_iter() {
@@ -172,7 +171,7 @@ fn relocations_iter() {
 fn relocations_writeback() {
     let relocs_iter = Relocations::iter(&RELOC_TESTDATA);
     let write_buf = &mut [0 as u8; RELOC_TESTDATA.len()] as &mut [u8];
-    let mut relocs_write_buf = Cursor::new(write_buf);
+    let mut relocs_write_buf = RWCursor::new(write_buf);
     let mut relocs: Vec<Relocation> = Vec::with_capacity(2);
 
     for r in relocs_iter.into_iter() {
@@ -181,5 +180,5 @@ fn relocations_writeback() {
 
     Relocations::write_all(&mut relocs_write_buf, &relocs);
 
-    assert_eq!(RELOC_TESTDATA, relocs_write_buf.into_inner());
+    assert_eq!(RELOC_TESTDATA, relocs_write_buf.buf);
 }

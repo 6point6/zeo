@@ -7,6 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zordon = "0.1.10"
+zordon = "0.2.0"
 assert_hex = "0.2.2"
 byteorder = "1.4.2"
