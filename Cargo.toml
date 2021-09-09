@@ -1,6 +1,6 @@
 [package]
 name = "zeo"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Orson Mosley <orson.mosley@6point6.co.uk>"]
 edition = "2018"
 
@@ -10,3 +10,6 @@ edition = "2018"
 zordon = "0.2.0"
 assert_hex = "0.2.2"
 byteorder = "1.4.2"
+
+[features]
+std_unit_tests = []

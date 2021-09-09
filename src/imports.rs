@@ -2,7 +2,6 @@ use crate::util::{IterWriteBack, ROCursor, RWCursor};
 #[allow(unused_imports)]
 use assert_hex::assert_eq_hex;
 use byteorder::{ByteOrder, LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::Cursor;
 
 pub struct ImportDescriptor {
     pub original_first_thunk: u32,
@@ -69,6 +68,10 @@ const IMPORT_DESC_TESTDATA: [u8; 44] = [
     0x00, 0x30, 0x00, 0x00, 0x50, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x8A, 0x31, 0x00, 0x00, 0x10, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 ];
+
+#[cfg(feature = "std_unit_tests")]
+#[cfg(test)]
+use alloc::prelude::v1::*;
 
 #[test]
 fn import_descriptor_iter() {

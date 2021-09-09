@@ -1,13 +1,15 @@
+#[allow(unused_attributes)]
+#[macro_use]
+#[allow(unused_imports)]
 use crate::fmt_err;
 use crate::{
     dos_hdr::DosHeader, imports::ImportDescriptor, nt_hdr::*, relocs::Relocation,
     sec_hdr::SectionHeader,
 };
 use zordon::prelude::*;
-#[allow(unused_attributes)]
-#[macro_use]
-#[allow(unused_imports)]
-use assert_hex::assert_eq_hex;
+use alloc::prelude::v1::*;
+use alloc::format;
+
 pub struct PeHeader<'a> {
     pub dos_hdr: DosHeader<'a>,
     pub nt_hdr: NtHeader<'a>,
@@ -116,7 +118,8 @@ impl<'a> PeHeader<'a> {
 }
 
 //Tests
-
+#[cfg(feature = "std_unit_tests")]
+use assert_hex::assert_eq_hex;
 #[test]
 fn virt_addr_to_sec_index() {
     let mut buf = read_test_pe();

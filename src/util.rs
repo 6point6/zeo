@@ -1,18 +1,17 @@
+use alloc::format;
+use alloc::prelude::v1::*;
 use byteorder::ByteOrder;
-use std::io::Cursor;
 
 #[macro_export]
-
 macro_rules! fmt_err {
     ($($arg:tt)*) => {{
-        let res = std::fmt::format(format_args!($($arg)*));
+        let res = alloc::fmt::format(format_args!($($arg)*));
 
         format!(
-            "[-] Error:\n\t- Cause: {}\n\t- Line: {}\n\t- File: {}\n\n{}",
+            "[-] Error:\n\t- Cause: {}\n\t- Line: {}\n\t- File: {}\n",
             res,
             line!(),
             file!(),
-            std::backtrace::Backtrace::force_capture()
         )
     }}
 }

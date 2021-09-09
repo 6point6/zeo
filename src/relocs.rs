@@ -4,7 +4,7 @@
 use assert_hex::assert_eq_hex;
 use crate::util::{IterWriteBack, ROCursor, RWCursor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::Cursor;
+use alloc::prelude::v1::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum RelocationType {
@@ -58,13 +58,13 @@ pub struct Relocation {
 }
 
 pub struct RelocationsIter<'a> {
-    buf: Cursor<&'a [u8]>,
+    buf: ROCursor<'a>,
 }
 
 impl<'a> RelocationsIter<'a> {
     pub fn new(buf: &'a [u8]) -> Self {
         Self {
-            buf: Cursor::new(buf),
+            buf: ROCursor::new(buf),
         }
     }
 }
@@ -74,19 +74,19 @@ impl<'a> Iterator for RelocationsIter<'a> {
 
     // Maybe this shouldn't panic
     fn next(&mut self) -> Option<Self::Item> {
-        let virt_addr = self.buf.read_u32::<LittleEndian>().unwrap();
+        let virt_addr = self.buf.read_u32::<LittleEndian>();
 
         if virt_addr == 0 {
             return None;
         }
 
-        let size_of_block = self.buf.read_u32::<LittleEndian>().unwrap();
+        let size_of_block = self.buf.read_u32::<LittleEndian>();
         let type_offset_count = ((size_of_block - 8) / 2) as usize;
 
         let mut block: Vec<RelocTypeOffset> = Vec::with_capacity(type_offset_count);
 
         for _ in 1..=type_offset_count {
-            let type_offset_pair = self.buf.read_u16::<LittleEndian>().unwrap();
+            let type_offset_pair = self.buf.read_u16::<LittleEndian>();
             block.push(RelocTypeOffset::new(type_offset_pair));
         }
 
@@ -122,6 +122,10 @@ const RELOC_TESTDATA: [u8; 28] = [
     0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30, 0x1F, 0x30, 0, 0x10, 0, 0, 0x0C, 0, 0, 0, 0x17, 0x30,
     0x1F, 0x30, 0, 0, 0, 0,
 ];
+
+#[cfg(feature = "std_unit_tests")]
+#[cfg(test)]
+use alloc::prelude::v1::*;
 
 #[test]
 fn relocations_iter() {
